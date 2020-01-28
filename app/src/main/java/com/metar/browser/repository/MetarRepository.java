@@ -36,7 +36,7 @@ import java.util.Objects;
 public class MetarRepository {
     private final String TAG = MetarRepository.class.getSimpleName();
     private MetarDao mMetarDao;
-    private LiveData<List<MetarEntity>> mAllMessages = new MutableLiveData<>();
+    private MutableLiveData<List<MetarEntity>> mAllMessages = new MutableLiveData<>();
     private RequestQueue mRequestQueue;
     private ParsingAndSavingAsyncTaskRunner mTask;
 
@@ -69,7 +69,7 @@ public class MetarRepository {
                     }, new Response.ErrorListener() {
                 @Override
                 public void onErrorResponse(VolleyError error) {
-                    mAllMessages = mMetarDao.getAllMessages();
+                    mAllMessages.postValue(mMetarDao.getAllMessages());
                 }
             });
             stringRequest.setTag(TAG);
@@ -78,7 +78,7 @@ public class MetarRepository {
                     DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
             mRequestQueue.add(stringRequest);
         } else {
-            mAllMessages = mMetarDao.getAllMessages();
+            mAllMessages.postValue(mMetarDao.getAllMessages());
         }
     }
 

@@ -13,17 +13,17 @@ import java.util.List;
 @Dao
 public interface MetarDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    void insert(MetarEntity message);
+    long insert(MetarEntity message);
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     void insertList(List<MetarEntity> messages);
 
-    @Query("SELECT * from metar_messages_table ORDER BY " + MetarEntity.COL_STATION_NAME + " ASC")
-    LiveData<List<MetarEntity>> getAllMessages();
+    @Query("SELECT * from " + MetarEntity.TABLE_NAME + " ORDER BY " + MetarEntity.COL_STATION_NAME + " ASC")
+    List<MetarEntity> getAllMessages();
 
-    @Query("SELECT * from metar_messages_table ORDER BY " + MetarEntity.COL_STATION_NAME + " ASC")
+    @Query("SELECT * from " + MetarEntity.TABLE_NAME + " ORDER BY " + MetarEntity.COL_STATION_NAME + " ASC")
     Cursor getMessagesCursor();
 
-    @Query("SELECT * from metar_messages_table WHERE " + MetarEntity.COL_STATION_NAME + " = :stationName")
-    LiveData<MetarEntity> getMessage(String stationName);
+    @Query("SELECT * from " + MetarEntity.TABLE_NAME + " WHERE " + MetarEntity.COL_STATION_NAME + " = :stationName")
+    MetarEntity getMessage(String stationName);
 }

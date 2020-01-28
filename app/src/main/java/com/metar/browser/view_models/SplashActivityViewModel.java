@@ -15,16 +15,20 @@ import java.util.List;
 public class SplashActivityViewModel extends AndroidViewModel {
     private StationsRepository mRepository;
     private MutableLiveData<List<MetarEntity>> mStationsList = new MutableLiveData<>();
-    private LiveData<Boolean> isLoading = new MutableLiveData<>();
+    private MutableLiveData<Boolean> isLoading = new MutableLiveData<>();
 
     public SplashActivityViewModel(@NonNull Application application) {
         super(application);
         mRepository = new StationsRepository(application);
-        mStationsList.postValue(mRepository.getStations().getValue());
+        getStationsFromDb();
     }
 
     public LiveData<List<MetarEntity>> getStations() {
         return mStationsList;
+    }
+
+    private void getStationsFromDb(){
+        mRepository.getStationsFromDatabase(mStationsList);
     }
 
     public LiveData<Boolean> isLoading() {

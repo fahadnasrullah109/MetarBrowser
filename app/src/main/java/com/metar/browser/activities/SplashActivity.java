@@ -33,7 +33,7 @@ public class SplashActivity extends AppCompatActivity {
         mViewModel.getStations().observe(this, new Observer<List<MetarEntity>>() {
             @Override
             public void onChanged(List<MetarEntity> metarEntities) {
-                if (metarEntities != null) {
+                if (metarEntities != null && metarEntities.size() > 0) {
                     Utility.launchActivity(SplashActivity.this, MainActivity.class, true);
                 } else {
                     if (NetworkHelper.isOnline()) {

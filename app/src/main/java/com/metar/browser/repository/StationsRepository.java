@@ -3,8 +3,8 @@ package com.metar.browser.repository;
 import android.app.Application;
 import android.os.AsyncTask;
 import android.text.TextUtils;
+import android.util.Log;
 
-import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.android.volley.DefaultRetryPolicy;
@@ -36,7 +36,8 @@ public class StationsRepository {
     private final String TAG = StationsRepository.class.getSimpleName();
     private MetarDao mMetarDao;
     private RequestQueue mRequestQueue;
-    private StationsRepository.ParsingAndSavingAsyncTask mTask;
+    private StationsRepository.ParsingAndSavingAsyncTask mSavingTask;
+    private StationsRepository.GetMessagesAsyncTask mGetStationsTask;
 
     public StationsRepository(Application application) {
         MetarMessagesDatabase db = MetarMessagesDatabase.getDatabase(application);
@@ -44,8 +45,9 @@ public class StationsRepository {
         mRequestQueue = Volley.newRequestQueue(application);
     }
 
-    public LiveData<List<MetarEntity>> getStations() {
-        return mMetarDao.getAllMessages();
+    public void getStationsFromDatabase(MutableLiveData<List<MetarEntity>> liveData) {
+        mGetStationsTask = new GetMessagesAsyncTask(liveData);
+        mGetStationsTask.execute();
     }
 
     public void getStationsListFromNetwork(final String url, final MutableLiveData<List<MetarEntity>> liveData) {
@@ -56,8 +58,8 @@ public class StationsRepository {
                         public void onResponse(String response) {
                             if (!TextUtils.isEmpty(response)) {
                                 response = Utility.normalizeResponse(response);
-                                mTask = new StationsRepository.ParsingAndSavingAsyncTask(response, liveData);
-                                mTask.execute();
+                                mSavingTask = new StationsRepository.ParsingAndSavingAsyncTask(response, liveData);
+                                mSavingTask.execute();
                             }
                         }
                     }, new Response.ErrorListener() {
@@ -95,6 +97,7 @@ public class StationsRepository {
                 case XmlPullParser.END_TAG:
                     name = parser.getName();
                     if (name.equals("a") && (station != null && station.contains(".TXT") && station.startsWith("ED"))) {
+                        Log.e(TAG, station);
                         Objects.requireNonNull(stations).add(new MetarEntity(station, null, null));
                     }
                     station = null;
@@ -129,9 +132,7 @@ public class StationsRepository {
                 parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
                 parser.setInput(new BufferedReader(new InputStreamReader(new ByteArrayInputStream(mData.getBytes()))));
                 List<MetarEntity> stations = parseXML(parser);
-                MetarMessagesDatabase.databaseWriteExecutor.execute(() -> {
-                    mMetarDao.insertList(stations);
-                });
+                mMetarDao.insertList(stations);
                 return stations;
             } catch (XmlPullParserException e) {
                 e.printStackTrace();
@@ -143,7 +144,26 @@ public class StationsRepository {
 
         @Override
         protected void onPostExecute(List<MetarEntity> entities) {
-            mLiveData.postValue(mMetarDao.getAllMessages().getValue());
+            mLiveData.postValue(entities);
+        }
+    }
+
+
+    private class GetMessagesAsyncTask extends AsyncTask<String, String, List<MetarEntity>> {
+        private MutableLiveData<List<MetarEntity>> mLiveData;
+
+        public GetMessagesAsyncTask(MutableLiveData<List<MetarEntity>> liveData) {
+            this.mLiveData = liveData;
+        }
+
+        @Override
+        protected List<MetarEntity> doInBackground(String... params) {
+            return mMetarDao.getAllMessages();
+        }
+
+        @Override
+        protected void onPostExecute(List<MetarEntity> entities) {
+            mLiveData.postValue(entities);
         }
     }
 
@@ -151,8 +171,11 @@ public class StationsRepository {
         if (mRequestQueue != null) {
             mRequestQueue.cancelAll(TAG);
         }
-        if (mTask != null) {
-            mTask.cancel(true);
+        if (mSavingTask != null) {
+            mSavingTask.cancel(true);
+        }
+        if (mGetStationsTask != null) {
+            mGetStationsTask.cancel(true);
         }
     }
 }
