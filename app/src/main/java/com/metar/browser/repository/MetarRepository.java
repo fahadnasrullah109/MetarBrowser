@@ -1,11 +1,9 @@
 package com.metar.browser.repository;
 
 import android.app.Application;
-import android.database.Cursor;
 import android.os.AsyncTask;
 import android.text.TextUtils;
 
-import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.android.volley.DefaultRetryPolicy;
@@ -21,24 +19,16 @@ import com.metar.browser.database.MetarMessagesDatabase;
 import com.metar.browser.utils.NetworkHelper;
 import com.metar.browser.utils.Utility;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlPullParserFactory;
-
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class MetarRepository {
     private final String TAG = MetarRepository.class.getSimpleName();
     private MetarDao mMetarDao;
-    private MutableLiveData<List<MetarEntity>> mAllMessages = new MutableLiveData<>();
     private RequestQueue mRequestQueue;
-    private ParsingAndSavingAsyncTaskRunner mTask;
+    private UpdateMetarTask mTask;
+    private GetStationsTask mGetTask;
+    private GetMessageTask mMessageTask;
+    private boolean mDecodedRequestFinished, mRawRequestFinished;
 
     public MetarRepository(Application application) {
         MetarMessagesDatabase db = MetarMessagesDatabase.getDatabase(application);
@@ -46,109 +36,127 @@ public class MetarRepository {
         mRequestQueue = Volley.newRequestQueue(application);
     }
 
-    public Cursor getDealsCursor() {
-        return mMetarDao.getMessagesCursor();
+    public void getAllStations(final MutableLiveData<List<MetarEntity>> liveData) {
+        mGetTask = new GetStationsTask(liveData);
+        mGetTask.execute();
     }
 
-    public LiveData<List<MetarEntity>> getAllMessages() {
-        return mAllMessages;
-    }
-
-    public void getMessagesListFromNetwork(final String url, final MutableLiveData<List<MetarEntity>> liveData) {
+    public void getDetail(String station, final MutableLiveData<MetarEntity> liveData) {
         if (NetworkHelper.isOnline()) {
-            StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+            mDecodedRequestFinished = false;
+            mRawRequestFinished = false;
+            MetarEntity entity = new MetarEntity();
+            entity.setStation(station);
+            StringRequest decodedStringRequest = new StringRequest(Request.Method.GET, Utility.getDecodedMessageUrl(station),
                     new Response.Listener<String>() {
                         @Override
                         public void onResponse(String response) {
+                            mDecodedRequestFinished = true;
                             if (!TextUtils.isEmpty(response)) {
-                                response = Utility.normalizeResponse(response);
-                                mTask = new ParsingAndSavingAsyncTaskRunner(response, liveData);
-                                mTask.execute();
+                                entity.setDecodedMessage(response);
+                                saveMessageInDatabase(entity, liveData);
                             }
                         }
                     }, new Response.ErrorListener() {
                 @Override
                 public void onErrorResponse(VolleyError error) {
-                    mAllMessages.postValue(mMetarDao.getAllMessages());
+                    mDecodedRequestFinished = true;
+                    getMessageFromDatabase(station, liveData);
                 }
             });
-            stringRequest.setTag(TAG);
-            stringRequest.setRetryPolicy(new DefaultRetryPolicy(30000,
+            decodedStringRequest.setTag(TAG);
+            decodedStringRequest.setRetryPolicy(new DefaultRetryPolicy(30000,
                     DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
                     DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-            mRequestQueue.add(stringRequest);
+            mRequestQueue.add(decodedStringRequest);
+
+            StringRequest rawStringRequest = new StringRequest(Request.Method.GET, Utility.getRawMessageUrl(station),
+                    new Response.Listener<String>() {
+                        @Override
+                        public void onResponse(String response) {
+                            mRawRequestFinished = true;
+                            if (!TextUtils.isEmpty(response)) {
+                                entity.setRawMessage(response);
+                                saveMessageInDatabase(entity, liveData);
+                            }
+                        }
+                    }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    mRawRequestFinished = true;
+                    getMessageFromDatabase(station, liveData);
+                }
+            });
+            rawStringRequest.setTag(TAG);
+            rawStringRequest.setRetryPolicy(new DefaultRetryPolicy(30000,
+                    DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+                    DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+            mRequestQueue.add(rawStringRequest);
         } else {
-            mAllMessages.postValue(mMetarDao.getAllMessages());
+            getMessageFromDatabase(station, liveData);
         }
     }
 
-    private List<MetarEntity> parseXML(XmlPullParser parser) throws XmlPullParserException, IOException {
-        List<MetarEntity> stations = null;
-        String station = null;
-        int eventType = parser.getEventType();
-        while (eventType != XmlPullParser.END_DOCUMENT) {
-            String name;
-            switch (eventType) {
-                case XmlPullParser.START_DOCUMENT:
-                    stations = new ArrayList<>();
-                    break;
-                case XmlPullParser.START_TAG:
-                    name = parser.getName();
-                    if (name.equals("a")) {
-                        station = parser.getAttributeValue(null, "href");
-                    }
-                    break;
-                case XmlPullParser.END_TAG:
-                    name = parser.getName();
-                    if (name.equals("a") && (station != null && station.contains(".TXT") && station.startsWith("ED"))) {
-                        Objects.requireNonNull(stations).add(new MetarEntity(station, null, null));
-                    }
-                    station = null;
-                    break;
-            }
-            eventType = parser.next();
+    private void saveMessageInDatabase(MetarEntity entity, MutableLiveData<MetarEntity> liveData) {
+        if (mRawRequestFinished && mDecodedRequestFinished) {
+            mTask = new MetarRepository.UpdateMetarTask(entity, liveData);
+            mTask.execute();
         }
-        return stations;
     }
 
-    public void insert(MetarEntity word) {
-        MetarMessagesDatabase.databaseWriteExecutor.execute(() -> {
-            mMetarDao.insert(word);
-        });
+    private void getMessageFromDatabase(String stationName, MutableLiveData<MetarEntity> liveData) {
+        mMessageTask = new GetMessageTask(stationName, liveData);
+        mMessageTask.execute();
     }
 
-    private class ParsingAndSavingAsyncTaskRunner extends AsyncTask<String, String, List<MetarEntity>> {
-        private String mData;
+    private class UpdateMetarTask extends AsyncTask<String, String, Void> {
+        private MetarEntity mEntity;
+        private MutableLiveData<MetarEntity> mLiveData;
+
+        public UpdateMetarTask(MetarEntity entity, MutableLiveData<MetarEntity> liveData) {
+            this.mEntity = entity;
+            this.mLiveData = liveData;
+        }
+
+        @Override
+        protected Void doInBackground(String... params) {
+            mMetarDao.updateMetarMessage(this.mEntity.getStation(), this.mEntity.getRawMessage(), this.mEntity.getDecodedMessage());
+            mLiveData.postValue(mMetarDao.getMessage(mEntity.getStation()));
+            return null;
+        }
+    }
+
+    private class GetMessageTask extends AsyncTask<String, String, Void> {
+        private String mStationName;
+        private MutableLiveData<MetarEntity> mLiveData;
+
+        public GetMessageTask(String stationName, MutableLiveData<MetarEntity> liveData) {
+            this.mStationName = stationName;
+            this.mLiveData = liveData;
+        }
+
+        @Override
+        protected Void doInBackground(String... params) {
+            mLiveData.postValue(mMetarDao.getMessage(mStationName));
+            return null;
+        }
+    }
+
+    private class GetStationsTask extends AsyncTask<String, String, List<MetarEntity>> {
         private MutableLiveData<List<MetarEntity>> mLiveData;
 
-        public ParsingAndSavingAsyncTaskRunner(String data, MutableLiveData<List<MetarEntity>> liveData) {
-            this.mData = data;
+        public GetStationsTask(MutableLiveData<List<MetarEntity>> liveData) {
             this.mLiveData = liveData;
         }
 
         @Override
         protected List<MetarEntity> doInBackground(String... params) {
-            XmlPullParserFactory pullParserFactory;
-            try {
-                pullParserFactory = XmlPullParserFactory.newInstance();
-                XmlPullParser parser = pullParserFactory.newPullParser();
-                parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
-                parser.setInput(new BufferedReader(new InputStreamReader(new ByteArrayInputStream(mData.getBytes()))));
-                List<MetarEntity> stations = parseXML(parser);
-                mMetarDao.insertList(stations);
-                return stations;
-            } catch (XmlPullParserException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return null;
+            return mMetarDao.getAllMessages();
         }
 
-
         @Override
-        protected void onPostExecute(List<MetarEntity> entities) {
-            mLiveData.postValue(entities);
+        protected void onPostExecute(List<MetarEntity> stations) {
+            mLiveData.postValue(stations);
         }
     }
 
@@ -158,6 +166,12 @@ public class MetarRepository {
         }
         if (mTask != null) {
             mTask.cancel(true);
+        }
+        if (mGetTask != null) {
+            mGetTask.cancel(true);
+        }
+        if (mMessageTask != null) {
+            mMessageTask.cancel(true);
         }
     }
 }

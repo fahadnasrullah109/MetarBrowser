@@ -4,4 +4,5 @@
     <string name="raw_label">Raw</string>
     <string name="decoded_label">Decoded</string>
     <string name="network_error_label">Internet turned OFF, please turn ON and retry.</string>
+    <string name="station_search_hint">Type Station e-g; EDAC</string>
 </resources>

@@ -97,6 +97,7 @@ public class StationsRepository {
                 case XmlPullParser.END_TAG:
                     name = parser.getName();
                     if (name.equals("a") && (station != null && station.contains(".TXT") && station.startsWith("ED"))) {
+                        station = station.replaceAll(".TXT", "");
                         Log.e(TAG, station);
                         Objects.requireNonNull(stations).add(new MetarEntity(station, null, null));
                     }
@@ -106,12 +107,6 @@ public class StationsRepository {
             eventType = parser.next();
         }
         return stations;
-    }
-
-    public void insert(MetarEntity word) {
-        MetarMessagesDatabase.databaseWriteExecutor.execute(() -> {
-            mMetarDao.insert(word);
-        });
     }
 
     private class ParsingAndSavingAsyncTask extends AsyncTask<String, String, List<MetarEntity>> {

@@ -13,10 +13,13 @@ android {
     buildTypes {
         debug {
             buildConfigField "String", "METAR_LIST_URL", "\"https://tgftp.nws.noaa.gov/data/observations/metar/stations/\""
+            buildConfigField "String", "METAR_DECODED_BASE_URL", "\"https://tgftp.nws.noaa.gov/data/observations/metar/decoded/\""
         }
         release {
             minifyEnabled false
             buildConfigField "String", "METAR_LIST_URL", "\"https://tgftp.nws.noaa.gov/data/observations/metar/stations/\""
+            buildConfigField "String", "METAR_DECODED_BASE_URL", "\"https://tgftp.nws.noaa.gov/data/observations/metar/decoded/\""
+
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -46,4 +49,5 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+    implementation 'androidx.recyclerview:recyclerview:1.1.0'
 }

@@ -14,26 +14,29 @@ import java.util.List;
 
 public class MainActivityViewModel extends AndroidViewModel {
     private MetarRepository mRepository;
-    private LiveData<List<MetarEntity>> mAllMessages;
-    private LiveData<MetarEntity> mEntity = new MutableLiveData<>();
+    private MutableLiveData<List<MetarEntity>> mStations = new MutableLiveData<>();
+    private MutableLiveData<MetarEntity> mEntity = new MutableLiveData<>();
 
     public MainActivityViewModel(@NonNull Application application) {
         super(application);
         mRepository = new MetarRepository(application);
-        mAllMessages = mRepository.getAllMessages();
     }
 
-    public LiveData<List<MetarEntity>> getAllMessages() {
-        return mAllMessages;
+    public LiveData<List<MetarEntity>> getAllStations() {
+        return mStations;
     }
 
-    /*public void getAllStationsFromServer(String url) {
-        mRepository.getMessagesFromNetwork(url);
+    public void getAllStationsFromDatabase() {
+        mRepository.getAllStations(mStations);
     }
 
-    public void getStationDetailFromServer(String url) {
-        mRepository.getMessagesFromNetwork(url);
-    }*/
+    public LiveData<MetarEntity> getMetarMessage() {
+        return mEntity;
+    }
+
+    public void getStationDetailFromServer(String station) {
+        mRepository.getDetail(station, mEntity);
+    }
 
     @Override
     protected void onCleared() {

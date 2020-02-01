@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <data>
 
@@ -9,7 +10,7 @@
             type="com.metar.browser.database.MetarEntity" />
     </data>
 
-    <androidx.constraintlayout.widget.ConstraintLayout xmlns:tools="http://schemas.android.com/tools"
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="@dimen/margin_20"
@@ -30,15 +31,21 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="20dp"
+            app:defaultQueryHint="@string/station_search_hint"
             app:layout_constraintBottom_toBottomOf="@+id/textView"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@+id/textView"
-            app:layout_constraintTop_toTopOf="@+id/textView" />
+            app:layout_constraintTop_toTopOf="@+id/textView"
+            app:queryHint="@string/station_search_hint" />
+
+
 
         <ScrollView
+            android:id="@+id/content_container"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_marginTop="24dp"
+            android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -80,6 +87,36 @@
 
             </LinearLayout>
         </ScrollView>
+
+        <LinearLayout
+            android:id="@+id/loadingContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/searchView">
+
+            <ProgressBar
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+        </LinearLayout>
+
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/suggestionRecyclerView"
+            android:layout_width="0dp"
+            android:layout_height="200dp"
+            android:background="@color/colorPrimary"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="@+id/searchView"
+            app:layout_constraintStart_toStartOf="@+id/searchView"
+            app:layout_constraintTop_toBottomOf="@+id/searchView" />
 
 
     </androidx.constraintlayout.widget.ConstraintLayout>
