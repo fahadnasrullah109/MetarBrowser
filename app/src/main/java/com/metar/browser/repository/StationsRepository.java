@@ -5,18 +5,11 @@ import android.os.AsyncTask;
 import android.text.TextUtils;
 import android.util.Log;
 
-import androidx.lifecycle.MutableLiveData;
-
-import com.android.volley.DefaultRetryPolicy;
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
+import com.metar.browser.BuildConfig;
 import com.metar.browser.database.MetarDao;
 import com.metar.browser.database.MetarEntity;
 import com.metar.browser.database.MetarMessagesDatabase;
+import com.metar.browser.interfaces.StationsNetworkCallback;
 import com.metar.browser.utils.NetworkHelper;
 import com.metar.browser.utils.Utility;
 
@@ -28,57 +21,107 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public class StationsRepository {
-    private final String TAG = StationsRepository.class.getSimpleName();
-    private MetarDao mMetarDao;
-    private RequestQueue mRequestQueue;
-    private StationsRepository.ParsingAndSavingAsyncTask mSavingTask;
-    private StationsRepository.GetMessagesAsyncTask mGetStationsTask;
+    private static final String TAG = StationsRepository.class.getSimpleName();
+    private static MetarDao mMetarDao;
+    private static StationsNetworkCallback mListener;
+    private StationsRepository.StationsAsyncTask mGetStationsTask;
 
-    public StationsRepository(Application application) {
+    public StationsRepository(Application application, StationsNetworkCallback listener) {
+        this.mListener = listener;
         MetarMessagesDatabase db = MetarMessagesDatabase.getDatabase(application);
         mMetarDao = db.metarDao();
-        mRequestQueue = Volley.newRequestQueue(application);
     }
 
-    public void getStationsFromDatabase(MutableLiveData<List<MetarEntity>> liveData) {
-        mGetStationsTask = new GetMessagesAsyncTask(liveData);
+    public void getStationsListFromNetwork() {
+        mGetStationsTask = new StationsAsyncTask();
         mGetStationsTask.execute();
     }
 
-    public void getStationsListFromNetwork(final String url, final MutableLiveData<List<MetarEntity>> liveData) {
-        if (NetworkHelper.isOnline()) {
-            StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
-                    new Response.Listener<String>() {
-                        @Override
-                        public void onResponse(String response) {
-                            if (!TextUtils.isEmpty(response)) {
-                                response = Utility.normalizeResponse(response);
-                                mSavingTask = new StationsRepository.ParsingAndSavingAsyncTask(response, liveData);
-                                mSavingTask.execute();
-                            }
-                        }
-                    }, new Response.ErrorListener() {
-                @Override
-                public void onErrorResponse(VolleyError error) {
-                    liveData.postValue(null);
-                }
-            });
-            stringRequest.setTag(TAG);
-            stringRequest.setRetryPolicy(new DefaultRetryPolicy(30000,
-                    DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
-                    DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-            mRequestQueue.add(stringRequest);
-        } else {
-            liveData.postValue(null);
+    private static class StationsAsyncTask extends AsyncTask<String, String, Void> {
+
+        @Override
+        protected Void doInBackground(String... params) {
+            List<MetarEntity> stations = mMetarDao.getAllMessages();
+            if (stations == null || stations.size() == 0) {
+                stations = getStations();
+                mMetarDao.insertList(stations);
+            }
+            mListener.onStationsSuccess(stations);
+            return null;
         }
     }
 
-    private List<MetarEntity> parseXML(XmlPullParser parser) throws XmlPullParserException, IOException {
+    private static List<MetarEntity> getStations() {
+        if (NetworkHelper.isOnline()) {
+            String inputLine;
+            try {
+                //Create a URL object holding our url
+                URL myUrl = new URL(BuildConfig.METAR_LIST_URL);
+                //Create a connection
+                HttpURLConnection connection = (HttpURLConnection)
+                        myUrl.openConnection();
+                //Set methods and timeouts
+                connection.setRequestMethod(Utility.REQUEST_TYPE_GET);
+                connection.setReadTimeout(Utility.CONNECTION_READ_TIMEOUT);
+                connection.setConnectTimeout(Utility.CONNECTION_TIMOUT);
+
+                //Connect to our url
+                connection.connect();
+                //Create a new InputStreamReader
+                InputStreamReader streamReader = new
+                        InputStreamReader(connection.getInputStream());
+                //Create a new buffered reader and String Builder
+                BufferedReader reader = new BufferedReader(streamReader);
+                StringBuilder stringBuilder = new StringBuilder();
+                //Check if the line we are reading is not null
+                while ((inputLine = reader.readLine()) != null) {
+                    stringBuilder.append(inputLine);
+                }
+                //Close our InputStream and Buffered reader
+                reader.close();
+                streamReader.close();
+                return parseStationsList(stringBuilder.toString());
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                mListener.onStationsError();
+            }
+        } else {
+            mListener.onNetworkError();
+        }
+        return new ArrayList<>();
+    }
+
+    private static List<MetarEntity> parseStationsList(String result) {
+        if (TextUtils.isEmpty(result)) {
+            return new ArrayList<>();
+        }
+        result = Utility.normalizeResponse(result);
+        XmlPullParserFactory pullParserFactory;
+        try {
+            pullParserFactory = XmlPullParserFactory.newInstance();
+            XmlPullParser parser = pullParserFactory.newPullParser();
+            parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
+            parser.setInput(new BufferedReader(new InputStreamReader(new ByteArrayInputStream(result.getBytes()))));
+            return parseXML(parser);
+        } catch (XmlPullParserException e) {
+            e.printStackTrace();
+            mListener.onStationsError();
+        } catch (IOException e) {
+            e.printStackTrace();
+            mListener.onStationsError();
+        }
+        return new ArrayList<>();
+    }
+
+    private static List<MetarEntity> parseXML(XmlPullParser parser) throws XmlPullParserException, IOException {
         List<MetarEntity> stations = null;
         String station = null;
         int eventType = parser.getEventType();
@@ -109,66 +152,7 @@ public class StationsRepository {
         return stations;
     }
 
-    private class ParsingAndSavingAsyncTask extends AsyncTask<String, String, List<MetarEntity>> {
-        private String mData;
-        private MutableLiveData<List<MetarEntity>> mLiveData;
-
-        public ParsingAndSavingAsyncTask(String data, MutableLiveData<List<MetarEntity>> liveData) {
-            this.mData = data;
-            this.mLiveData = liveData;
-        }
-
-        @Override
-        protected List<MetarEntity> doInBackground(String... params) {
-            XmlPullParserFactory pullParserFactory;
-            try {
-                pullParserFactory = XmlPullParserFactory.newInstance();
-                XmlPullParser parser = pullParserFactory.newPullParser();
-                parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
-                parser.setInput(new BufferedReader(new InputStreamReader(new ByteArrayInputStream(mData.getBytes()))));
-                List<MetarEntity> stations = parseXML(parser);
-                mMetarDao.insertList(stations);
-                return stations;
-            } catch (XmlPullParserException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(List<MetarEntity> entities) {
-            mLiveData.postValue(entities);
-        }
-    }
-
-
-    private class GetMessagesAsyncTask extends AsyncTask<String, String, List<MetarEntity>> {
-        private MutableLiveData<List<MetarEntity>> mLiveData;
-
-        public GetMessagesAsyncTask(MutableLiveData<List<MetarEntity>> liveData) {
-            this.mLiveData = liveData;
-        }
-
-        @Override
-        protected List<MetarEntity> doInBackground(String... params) {
-            return mMetarDao.getAllMessages();
-        }
-
-        @Override
-        protected void onPostExecute(List<MetarEntity> entities) {
-            mLiveData.postValue(entities);
-        }
-    }
-
     public void cancelAllRequests() {
-        if (mRequestQueue != null) {
-            mRequestQueue.cancelAll(TAG);
-        }
-        if (mSavingTask != null) {
-            mSavingTask.cancel(true);
-        }
         if (mGetStationsTask != null) {
             mGetStationsTask.cancel(true);
         }

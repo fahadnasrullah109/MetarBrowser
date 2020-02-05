@@ -5,4 +5,6 @@
     <string name="decoded_label">Decoded</string>
     <string name="network_error_label">Internet turned OFF, please turn ON and retry.</string>
     <string name="station_search_hint">Type Station e-g; EDAC</string>
+    <string name="wifi_on">Turn ON</string>
+    <string name="generic_error">Something went wrong, please try again later.</string>
 </resources>

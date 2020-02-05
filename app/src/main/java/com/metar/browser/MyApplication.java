@@ -23,11 +23,17 @@ public class MyApplication extends Application {
         scheduleWork(getApplicationContext(), SyncWorker.class.getSimpleName());
     }
 
+    /**
+     * Schedule WorkManager with initial delay of 15 minutes and repeatable on every 1 hour
+     *
+     * @param context
+     * @param tag
+     */
     public static void scheduleWork(Context context, String tag) {
         Constraints constraint = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
         PeriodicWorkRequest.Builder photoCheckBuilder =
                 new PeriodicWorkRequest.Builder(SyncWorker.class, 1, TimeUnit.HOURS);
-        PeriodicWorkRequest request = photoCheckBuilder.setConstraints(constraint).build();
+        PeriodicWorkRequest request = photoCheckBuilder.setConstraints(constraint).setInitialDelay(15, TimeUnit.MINUTES).build();
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(tag, ExistingPeriodicWorkPolicy.KEEP, request);
     }
 }

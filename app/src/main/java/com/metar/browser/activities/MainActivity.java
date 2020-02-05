@@ -52,7 +52,17 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
             @Override
             public void onChanged(MetarEntity entity) {
                 mBinding.setMessageObj(entity);
-                hideLoading();
+            }
+        });
+
+        mViewModel.getIsLoading().observe(this, new Observer<Boolean>() {
+            @Override
+            public void onChanged(Boolean aBoolean) {
+                if (aBoolean) {
+                    showLoading();
+                } else {
+                    hideLoading();
+                }
             }
         });
 
@@ -110,7 +120,6 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
 
     private void getDetails(String queryString) {
         if (!TextUtils.isEmpty(queryString)) {
-            showLoading();
             Utility.hideKeyboard(MainActivity.this);
             mViewModel.getStationDetailFromServer(queryString);
         }
