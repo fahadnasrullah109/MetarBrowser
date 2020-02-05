@@ -9,6 +9,9 @@ import com.metar.browser.BuildConfig;
 
 public class Utility {
     public static final String QUERY_STRING_EXTRA = "com.metar.query.string.extra";
+    public static final String REQUEST_TYPE_GET = "GET";
+    public static final int CONNECTION_READ_TIMEOUT = 30000;
+    public static final int CONNECTION_TIMOUT = 20000;
 
 
     public static String normalizeResponse(String response) {
