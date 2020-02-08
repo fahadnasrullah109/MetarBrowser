@@ -24,7 +24,7 @@ public class MyApplication extends Application {
     }
 
     /**
-     * Schedule WorkManager with initial delay of 15 minutes and repeatable on every 1 hour
+     * Schedule WorkManager with initial delay of 5 minutes and repeatable on every 1 hour
      *
      * @param context
      * @param tag
@@ -33,7 +33,7 @@ public class MyApplication extends Application {
         Constraints constraint = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
         PeriodicWorkRequest.Builder photoCheckBuilder =
                 new PeriodicWorkRequest.Builder(SyncWorker.class, 1, TimeUnit.HOURS);
-        PeriodicWorkRequest request = photoCheckBuilder.setConstraints(constraint).setInitialDelay(15, TimeUnit.MINUTES).build();
+        PeriodicWorkRequest request = photoCheckBuilder.setConstraints(constraint).setInitialDelay(5, TimeUnit.MINUTES).build();
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(tag, ExistingPeriodicWorkPolicy.REPLACE, request);
     }
 }

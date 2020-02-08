@@ -2,7 +2,6 @@ package com.metar.browser.activities;
 
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -36,7 +35,6 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.e(TAG, "onCreate");
         mBinding = DataBindingUtil.setContentView(this, R.layout.activity_main);
         mViewModel = ViewModelProviders.of(this).get(MainActivityViewModel.class);
 
@@ -73,6 +71,11 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
             }
         });
 
+        if (savedInstanceState != null) {
+            mQueryString = savedInstanceState.getString(Utility.QUERY_STRING_EXTRA, "");
+            //mBinding.searchView.setQuery(mQueryString, true);
+        }
+
         // SearchView
         mBinding.searchView.setActivated(true);
         mBinding.searchView.setQueryHint(getString(R.string.station_search_hint));
@@ -89,19 +92,16 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
             @Override
             public boolean onQueryTextChange(String newText) {
                 mAdapter.getFilter().filter(newText);
-                if (newText.length() != 0) {
+                if (newText.length() != 0 && mQueryString == null) {
                     showSuggestions();
                 } else {
                     hideSuggestions();
                 }
+                // Using this QueryString to check either Activity Re-Created then don't show suggestions until user type in search
+                mQueryString = null;
                 return false;
             }
         });
-
-        if (savedInstanceState != null) {
-            mQueryString = savedInstanceState.getString(Utility.QUERY_STRING_EXTRA, "");
-            mBinding.searchView.setQuery(mQueryString, true);
-        }
 
         // RecyclerView
         mAdapter = new SuggestionRecyclerAdapter(mStation, this);
@@ -153,12 +153,6 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
 
     private void hideLoading() {
         mBinding.loadingContainer.setVisibility(View.GONE);
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        Log.e(TAG, "onDestroy");
     }
 
     @Override
