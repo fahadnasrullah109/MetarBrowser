@@ -34,6 +34,6 @@ public class MyApplication extends Application {
         PeriodicWorkRequest.Builder photoCheckBuilder =
                 new PeriodicWorkRequest.Builder(SyncWorker.class, 1, TimeUnit.HOURS);
         PeriodicWorkRequest request = photoCheckBuilder.setConstraints(constraint).setInitialDelay(15, TimeUnit.MINUTES).build();
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(tag, ExistingPeriodicWorkPolicy.KEEP, request);
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(tag, ExistingPeriodicWorkPolicy.REPLACE, request);
     }
 }

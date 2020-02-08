@@ -60,7 +60,13 @@ public class SplashActivity extends AppCompatActivity {
 
     private void showGenericError() {
         Snackbar snackbar = Snackbar
-                .make(findViewById(android.R.id.content), getString(R.string.generic_error), Snackbar.LENGTH_LONG);
+                .make(findViewById(android.R.id.content), getString(R.string.offline_data_error), Snackbar.LENGTH_INDEFINITE)
+                .setAction(getString(R.string.ok), new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        finish();
+                    }
+                });
         snackbar.show();
     }
 

@@ -38,7 +38,25 @@
             app:layout_constraintTop_toTopOf="@+id/textView"
             app:queryHint="@string/station_search_hint" />
 
+        <LinearLayout
+            android:id="@+id/noDataContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/searchView">
 
+            <TextView
+                android:text="@string/no_data_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+        </LinearLayout>
 
         <ScrollView
             android:id="@+id/content_container"

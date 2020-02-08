@@ -51,6 +51,13 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
         mViewModel.getMetarMessage().observe(this, new Observer<MetarEntity>() {
             @Override
             public void onChanged(MetarEntity entity) {
+                if (isEmptyEntity(entity)) {
+                    mBinding.noDataContainer.setVisibility(View.VISIBLE);
+                    mBinding.contentContainer.setVisibility(View.GONE);
+                } else {
+                    mBinding.noDataContainer.setVisibility(View.GONE);
+                    mBinding.contentContainer.setVisibility(View.VISIBLE);
+                }
                 mBinding.setMessageObj(entity);
             }
         });
@@ -106,6 +113,13 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
         mViewModel.getAllStationsFromDatabase();
     }
 
+    private boolean isEmptyEntity(MetarEntity entity) {
+        if (entity == null || entity.getRawMessage() == null || entity.getDecodedMessage() == null) {
+            return true;
+        }
+        return false;
+    }
+
     private void showSuggestions() {
         mBinding.suggestionRecyclerView.setVisibility(View.VISIBLE);
     }
@@ -133,12 +147,12 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
 
     private void showLoading() {
         mBinding.contentContainer.setVisibility(View.GONE);
+        mBinding.noDataContainer.setVisibility(View.GONE);
         mBinding.loadingContainer.setVisibility(View.VISIBLE);
     }
 
     private void hideLoading() {
         mBinding.loadingContainer.setVisibility(View.GONE);
-        mBinding.contentContainer.setVisibility(View.VISIBLE);
     }
 
     @Override

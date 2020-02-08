@@ -7,4 +7,7 @@
     <string name="station_search_hint">Type Station e-g; EDAC</string>
     <string name="wifi_on">Turn ON</string>
     <string name="generic_error">Something went wrong, please try again later.</string>
+    <string name="offline_data_error">No Offline Data available to show. Please connect with wifi and use the App.</string>
+    <string name="ok">OK</string>
+    <string name="no_data_label">No data available to show.</string>
 </resources>
